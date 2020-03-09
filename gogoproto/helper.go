@@ -28,8 +28,10 @@
 
 package gogoproto
 
-import google_protobuf "github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-import proto "github.com/gogo/protobuf/proto"
+import (
+	proto "github.com/gogo/protobuf/proto"
+	google_protobuf "github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+)
 
 func IsEmbed(field *google_protobuf.FieldDescriptorProto) bool {
 	return proto.GetBoolExtension(field.Options, E_Embed, false)
@@ -412,4 +414,8 @@ func HasSizecache(file *google_protobuf.FileDescriptorProto, message *google_pro
 
 func HasUnkeyed(file *google_protobuf.FileDescriptorProto, message *google_protobuf.DescriptorProto) bool {
 	return proto.GetBoolExtension(message.Options, E_GoprotoUnkeyed, proto.GetBoolExtension(file.Options, E_GoprotoUnkeyedAll, true))
+}
+
+func HasAvroSchema(file *google_protobuf.FileDescriptorProto, message *google_protobuf.DescriptorProto) bool {
+	return proto.GetBoolExtension(message.Options, E_AvroSchema, proto.GetBoolExtension(file.Options, E_AvroSchemaAll, true))
 }

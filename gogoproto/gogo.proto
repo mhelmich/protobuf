@@ -41,6 +41,7 @@ extend google.protobuf.EnumOptions {
 	optional bool enum_stringer = 62022;
 	optional string enum_customname = 62023;
 	optional bool enumdecl = 62024;
+	optional bool enum_avro_schema = 62025;
 }
 
 extend google.protobuf.EnumValueOptions {
@@ -87,6 +88,8 @@ extend google.protobuf.FileOptions {
 
 	optional bool goproto_sizecache_all = 63034;
 	optional bool goproto_unkeyed_all = 63035;
+
+	optional bool avro_schema_all = 63036;
 }
 
 extend google.protobuf.MessageOptions {
@@ -124,6 +127,8 @@ extend google.protobuf.MessageOptions {
 
 	optional bool goproto_sizecache = 64034;
 	optional bool goproto_unkeyed = 64035;
+
+	optional bool avro_schema = 64036;
 }
 
 extend google.protobuf.FieldOptions {
