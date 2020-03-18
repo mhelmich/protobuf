@@ -3,6 +3,7 @@ package avroschema
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -56,12 +57,17 @@ func (f *arrayField) schema() string {
 }
 
 type enumField struct {
-	name    string
-	symbols []string
+	name     string
+	typeName string
+	symbols  []string
 }
 
 func (f *enumField) schema() string {
-	return fmt.Sprintf("{\"name\": \"%s\", \"type\": {\"type\": \"enum\", \"symbols\": [ %s ]}}", f.name, strings.Join(f.symbols, ", "))
+	var quoted []string
+	for _, str := range f.symbols {
+		quoted = append(quoted, strconv.Quote(str))
+	}
+	return fmt.Sprintf("{\"name\": \"%s\", \"type\": {\"type\": \"enum\", \"name\": \"%s\", \"symbols\": [ %s ]}}", f.name, f.typeName, strings.Join(quoted, ", "))
 }
 
 type avroschema struct {
@@ -73,6 +79,10 @@ type avroschema struct {
 
 func newAvroSchema() *avroschema {
 	return &avroschema{}
+}
+
+func (p *avroschema) _print(format string, a ...interface{}) {
+	fmt.Fprintf(os.Stderr, format+"\n", a...)
 }
 
 func (p *avroschema) Name() string {
@@ -198,8 +208,17 @@ func (p *avroschema) getComplexField(message *generator.Descriptor, field *descr
 }
 
 func (p *avroschema) getEnumField(message *generator.Descriptor, field *descriptor.FieldDescriptorProto) (*enumField, error) {
+	enum := p.ObjectNamed(field.GetTypeName()).(*generator.EnumDescriptor)
+	var symbols []string
+	for _, v := range enum.GetValue() {
+		symbols = append(symbols, v.GetName())
+	}
+
+	splits := strings.Split(field.GetTypeName(), ".")
 	return &enumField{
-		name: field.GetName(),
+		name:     field.GetName(),
+		typeName: splits[len(splits)-1],
+		symbols:  symbols,
 	}, nil
 }
 
