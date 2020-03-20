@@ -191,13 +191,15 @@ func (p *avroschema) getArrayField(message *generator.Descriptor, field *descrip
 }
 
 func (p *avroschema) getComplexField(message *generator.Descriptor, field *descriptor.FieldDescriptorProto) (*complexField, error) {
-	cached, ok := p.seen[generator.CamelCase(field.GetName())]
+	splits := strings.Split(generator.CamelCase(field.GetTypeName()), ".")
+	typeName := splits[len(splits)-1]
+	cached, ok := p.seen[typeName]
 	if ok {
 		return cached, nil
 	}
 
 	f := &complexField{
-		name:      generator.CamelCaseSlice(message.TypeName()),
+		name:      generator.CamelCase(field.GetName()),
 		typ:       "record",
 		namespace: p.fileName,
 		fields:    make([]avroField, 0),
