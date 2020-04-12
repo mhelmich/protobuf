@@ -112,6 +112,7 @@ func (p *avroschema) createMessageStub(message *generator.Descriptor) {
 	p.P(fmt.Sprintf("return %s", strconv.Quote(schema.schema())))
 	p.Out()
 	p.P(`}`)
+	p.WriteByte('\n')
 }
 
 func (p *avroschema) processMessage(message *generator.Descriptor) *complexField {
