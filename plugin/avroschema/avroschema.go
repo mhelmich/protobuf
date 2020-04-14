@@ -22,6 +22,22 @@ type avroField interface {
 	schema() string
 }
 
+type envelope struct {
+	name      string
+	namespace string
+	typ       string
+	fields    []avroField
+}
+
+func (e *envelope) schema() string {
+	var fields []string
+	for _, field := range e.fields {
+		fields = append(fields, field.schema())
+	}
+
+	return fmt.Sprintf("{\"name\": \"%s\", \"type\": \"record\", \"namespace\": \"%s\", \"fields\": [ %s ]}", e.name, e.namespace, strings.Join(fields, ", "))
+}
+
 type simpleField struct {
 	name string
 	typ  string
@@ -32,9 +48,8 @@ func (f *simpleField) schema() string {
 }
 
 type complexField struct {
-	name      string
-	namespace string
-	typ       string
+	fieldName string
+	typeName  string
 	fields    []avroField
 }
 
@@ -44,7 +59,7 @@ func (f *complexField) schema() string {
 		fields = append(fields, field.schema())
 	}
 
-	return fmt.Sprintf("{\"name\": \"%s\", \"type\": \"record\", \"namespace\": \"%s\", \"fields\": [ %s ]}", f.name, f.namespace, strings.Join(fields, ", "))
+	return fmt.Sprintf("{\"name\": \"%s\", \"type\": { \"name\": \"%s\", \"type\": \"record\", \"fields\": [ %s ] }}", f.fieldName, f.typeName, strings.Join(fields, ", "))
 }
 
 type arrayField struct {
@@ -74,7 +89,7 @@ type avroschema struct {
 	*generator.Generator
 	generator.PluginImports
 	fileName string
-	seen     map[string]*complexField
+	seen     map[string]avroField
 }
 
 func newAvroSchema() *avroschema {
@@ -91,7 +106,7 @@ func (p *avroschema) Name() string {
 
 func (p *avroschema) Init(g *generator.Generator) {
 	p.Generator = g
-	p.seen = make(map[string]*complexField)
+	p.seen = make(map[string]avroField)
 }
 
 func (p *avroschema) Generate(file *generator.FileDescriptor) {
@@ -115,28 +130,24 @@ func (p *avroschema) createMessageStub(message *generator.Descriptor) {
 	p.WriteByte('\n')
 }
 
-func (p *avroschema) processMessage(message *generator.Descriptor) *complexField {
-	cf, ok := p.seen[generator.CamelCaseSlice(message.TypeName())]
-
-	if !ok {
-		cf = &complexField{
-			typ:       "record",
-			namespace: p.fileName,
-			name:      generator.CamelCaseSlice(message.TypeName()),
-			fields:    make([]avroField, 0),
-		}
-		p.seen[generator.CamelCaseSlice(message.TypeName())] = cf
+func (p *avroschema) processMessage(message *generator.Descriptor) *envelope {
+	e := &envelope{
+		typ:       "record",
+		namespace: p.fileName,
+		name:      generator.CamelCaseSlice(message.TypeName()),
+		fields:    make([]avroField, 0),
 	}
+	p.seen[generator.CamelCaseSlice(message.TypeName())] = e
 
 	for _, field := range message.Field {
 		fs, err := p.processField(message, field)
 		if err != nil {
 			panic(fmt.Sprintf("Rats! %s", err.Error()))
 		}
-		cf.fields = append(cf.fields, fs)
+		e.fields = append(e.fields, fs)
 	}
 
-	return cf
+	return e
 }
 
 func (p *avroschema) processField(message *generator.Descriptor, field *descriptor.FieldDescriptorProto) (avroField, error) {
@@ -196,13 +207,27 @@ func (p *avroschema) getComplexField(message *generator.Descriptor, field *descr
 	typeName := splits[len(splits)-1]
 	cached, ok := p.seen[typeName]
 	if ok {
-		return cached, nil
+		// convert envelope into complex field
+		envelope, ok := cached.(*envelope)
+		if ok {
+			return &complexField{
+				fieldName: generator.CamelCase(field.GetName()),
+				typeName:  typeName,
+				fields:    envelope.fields,
+			}, nil
+		}
+
+		cf, ok := cached.(*complexField)
+		if ok {
+			return cf, nil
+		}
+
+		panic("Rats! Cache contains type I didn't expect")
 	}
 
 	f := &complexField{
-		name:      generator.CamelCase(field.GetName()),
-		typ:       "record",
-		namespace: p.fileName,
+		fieldName: generator.CamelCase(*field.Name),
+		typeName:  typeName,
 		fields:    make([]avroField, 0),
 	}
 
